@@ -120,8 +120,7 @@ class FD:
         self.cut_directwave = cut_directwave
 
     def __str__(self):
-        res = str(self.kernel)
-        res += "the Model Property: \n"
+        res = "the Model Property: \n"
         res += str(self.model)
         res += "the Receiver and Shot setting:\n"
         res += str(self.sg)
@@ -151,12 +150,6 @@ class FD:
 
 
 class Acoustic3d1order(FD):
-
-    def __str__(self):
-        res = "Stencil Acoustic 3D first order\n"
-
-        res += str(super)
-        return res
 
     def load_kernel(self):
         from ctypes import cdll
@@ -193,15 +186,20 @@ class Acoustic3d1order(FD):
             )
 
     def __str__(self):
-        res = str(self.model)
-        res += "shot x, y, z = {}, {}, {}\n".format(self.sg.sxbeg, self.sg.sybeg, self.sg.szbeg)
-        res += "nt, dt, fpeak = {}, {}, {}\n".format(self.nt, self.dt, self.fpeak)
-        res += "shotfile: {}\n".format(self.sg.shotfile)
-        res += "show_snapshot: {}".format(self.savesnap)
+        res = "Stencil Acoustic 3D first order\n"
+        res += "*" * 30 + '\n'
+        res += super().__str__()
         return res
 
 
 class Acoustic3dvti(FD):
+
+    def __str__(self):
+        res = "Stencil Acoustic vti 3D \n"
+        res += "*" * 30 + '\n'
+        res += super().__str__()
+        return res
+
     def load_kernel(self):
         from ctypes import cdll
         try:
@@ -241,6 +239,12 @@ class Acoustic3dvti(FD):
 
 
 class Acoustic3d2order(FD):
+
+    def __str__(self):
+        res = "Stencil Acoustic 3D second order\n"
+        res += "*" * 30 + '\n'
+        res += str(super().__str__())
+        return res
 
     def load_kernel(self):
         from ctypes import cdll
