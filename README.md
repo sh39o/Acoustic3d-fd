@@ -14,18 +14,21 @@
 要求python3
 
 安装和运行：
-make
-在pyAcoustic.py设置参数
-其中nnode为一共的节点数，nodei为当前节点数，单机就将nnode写为1
-设置正演算子（二阶，一阶，一阶vti）
+  make
+  
+  在pyAcoustic.py设置参数
+  
+  其中nnode为一共的节点数，nodei为当前节点数，单机就将nnode写为1
+  
+  设置正演算子（二阶，一阶，一阶vti）
 
-二阶声波方程，Acoustic3d2order，只需要速度模型文件
+    二阶声波方程，Acoustic3d2order，只需要速度模型文件
 
-一阶声波方程，Acoustic3d1order，需要速度和密度模型文件
+    一阶声波方程，Acoustic3d1order，需要速度和密度模型文件
 
-一阶vti声波方程，Acoustic3dvti，需要速度，密度，delta，epsilon文件
+    一阶vti声波方程，Acoustic3dvti，需要速度，密度，delta，epsilon文件
 
-执行python3 ./pyAcoustic.py
+  执行python3 ./pyAcoustic.py
 
 pyAcoustic.py为主程序，readmodel为配置的类文件，src目录下为cuda代码
 
