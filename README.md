@@ -21,9 +21,9 @@ make
 
 二阶声波方程，Acoustic3d2order，只需要速度模型文件
 
-一阶声波方程，Acoustic3dvti，需要速度和密度模型文件
+一阶声波方程，Acoustic3d1order，需要速度和密度模型文件
 
-一阶vti声波方程，Acoustic3d1order，需要速度，密度，delta，epsilon文件
+一阶vti声波方程，Acoustic3dvti，需要速度，密度，delta，epsilon文件
 
 执行python3 ./pyAcoustic.py
 
