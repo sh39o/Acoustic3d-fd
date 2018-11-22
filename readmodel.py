@@ -114,7 +114,6 @@ class FD:
         self.snap_folder = snap_folder
         self.snap_interval = snap_interval
         self.kernel = None
-        self.device = device_i
         self.savesnap = savesnap
         self.nodei = nodei
         self.cut_directwave = cut_directwave
@@ -162,8 +161,8 @@ class Acoustic3d1order(FD):
         from ctypes import c_char_p, c_int, c_float, c_bool
         import os
         self.load_kernel()
-        print("device: {}, shot: ".format(self.device), ishot)
-        shotname = self.sg.shotfile + '({0},{1},{2}).bin'.format(str(ishot[0]), str(ishot[1]), str(ishot[2]))
+        print("device: {}, shot: ".format(device), ishot)
+        shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
         if 0:
             print(shotname + " exists, skip")
         else:
@@ -212,7 +211,7 @@ class Acoustic3dvti(FD):
         import os
         self.load_kernel()
         print("device: {}, shot: ".format(device), ishot)
-        shotname = self.sg.shotfile + '({0},{1},{2}).bin'.format(str(ishot[0]), str(ishot[1]), str(ishot[2]))
+        shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
         if 0:
             print(shotname + " exists, skip")
         else:
@@ -258,7 +257,7 @@ class Acoustic3d2order(FD):
         import os
         self.load_kernel()
         print("device: {}, shot: ".format(device), ishot)
-        shotname = self.sg.shotfile + '({0},{1},{2}).bin'.format(str(ishot[0]), str(ishot[1]), str(ishot[2]))
+        shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
         if 0:
             print(shotname + " exists, skip")
         else:

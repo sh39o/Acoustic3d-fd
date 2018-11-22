@@ -73,7 +73,12 @@ add_source(float pfac, int fsx, int fsy, int sz, int nx, int ny, int nz, int nnx
     } else if (wtype == 3) {//derivative of gaussian
         x_ = (-1) * favg * favg * pi * pi / log(0.1);
         source = exp(-x_ * ts * ts);
+    } else if (wtype == 4){
+        x_ = exp( - favg * favg * pi * pi * ts * ts ) * t;
+        source = -x_;
+        
     }
+    
 
     if (t <= 2 * tdelay) {
         ixs = sx + npml - 1;
@@ -370,7 +375,7 @@ extern "C" void cuda_3dfd_1order(char *FNvel, char *FNrho, char *FNsnap, char *F
 
     cudaError_t error;
 /*************wavelet\boundary**************/
-    wtype = 1;
+    wtype = 4;
     npml = 20;
 /********** dat document ***********/
     char snapname[300], snapid[300];
