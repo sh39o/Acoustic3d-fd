@@ -408,7 +408,6 @@ extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *F
     float *ptr;
     char snapname[300], snapid[300];
 
-    clock_t start, end;
 /*************wavelet\boundary**************/
     wtype = 1;
     npml = 20;
@@ -523,7 +522,6 @@ extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *F
 
     //printf("--------------------------------------------------------\n");
     //printf("---   \n");
-    start = clock();
 /**********IS Loop start*******/
     for (is = 0; is < ns; is++) {
         //  printf("---   IS=%3d  \n",is);
@@ -613,7 +611,6 @@ extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *F
         }
 
     }//is loop end
-    end = clock();
 /*********IS Loop end*********/
     //printf("---   The forward is over    \n");
     //printf("---   Complete!!!!!!!!! \n");

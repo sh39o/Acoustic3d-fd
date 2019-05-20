@@ -156,7 +156,7 @@ __global__ void cuda_record(float *p, float *seis, int *gxz, int ng)//++++++++++
 /*< record the seismogram at time it >*/
 {
 	int id=threadIdx.x+blockDim.x*blockIdx.x;
-    	if (id<ng) seis[id]=p[gxz[id]];
+    	if (id<ng) seis[id]=p[gxz[id] + 1];
 }
 
 
@@ -171,6 +171,18 @@ __global__ void cuda_add_source(bool add, float *p, float *source, int *szxy, in
     }else{
       p[szxy[id]]-=source[id];
     }
+  }
+}
+
+__global__ void cuda_add_dipole(float *p, float *source, int *szxy, int ns)
+/*< add/subtract sources: length of source[]=ns, index stored in szxy[] >*/
+{
+  int id=threadIdx.x+blockIdx.x*blockDim.x;
+  int sid;
+  if(id<ns){
+    sid = szxy[id];
+    p[sid] += source[id];
+    p[sid + 2] -= source[id];
   }
 }
 
@@ -365,7 +377,6 @@ extern "C"  void cuda_3dfd(char* FNvel, char *FNsnap, char* FNshot, int is, int 
     float *d_dcal_device_xy,*d_dcal_device_txy,*d_dcal_host;
     char snapname[300], snapid[300];
     float v_cut_directwave;
-    cudaError_t error;
     
     fpvel = fopen(FNvel,"rb");
     fpshot = fopen(FNshot, "wb");
@@ -428,7 +439,8 @@ extern "C"  void cuda_3dfd(char* FNvel, char *FNsnap, char* FNshot, int is, int 
 	for(it=0; it<nt; it++)
         {
          if(it%200==0)printf("   cuda: is=%2d >> it= %d\n",is,it);
-	  cuda_add_source<<<1,1>>>(true, d_p1, &d_wlt[it], &d_szxy[is], 1);
+	  //cuda_add_source<<<1,1>>>(true, d_p1, &d_wlt[it], &d_szxy[is], 1);
+	  cuda_add_dipole<<<1,1>>>(d_p1, &d_wlt[it], &d_szxy[is], 1);
 	  cuda_step_fd3d<<<dimg,dimb>>>(d_p0, d_p1, d_vv, _dz2, _dx2, _dy2, nz, nx, ny);
 	  ptr=d_p0; 
 	  d_p0=d_p1; 
@@ -441,7 +453,7 @@ extern "C"  void cuda_3dfd(char* FNvel, char *FNsnap, char* FNshot, int is, int 
          cuda_trans_xy2txy<<<(ng+511)/512, 512>>>(d_dcal_device_xy, d_dcal_device_txy, it, nt, ng);
         
         if(show_snapshot) {
-	        if(it % snap_interval == 0){
+	        if(it % 500 == 0){
                 cudaMemcpy(vv, d_p0, nnz*nnx*nny*sizeof(float), cudaMemcpyDeviceToHost);
                 strcpy(snapname,FNsnap);
                 sprintf(snapid,"ishot_%d_",is);
@@ -460,8 +472,8 @@ extern "C"  void cuda_3dfd(char* FNvel, char *FNsnap, char* FNshot, int is, int 
 	 }
 	 t1 = clock();
     if (cut_directwave) {
-        printf("cutting direct wave\n");
-        mute_directwave<<<Xdimg,dimb>>>(nx,ny,nt,dt,fm,dx,dy,dz,sxbeg,sybeg,jsx,jsy,szbeg,is,v_cut_directwave,d_dcal_device_txy,60,ns);
+        //printf("cutting direct wave\n");
+        //mute_directwave<<<Xdimg,dimb>>>(nx,ny,nt,dt,fm,dx,dy,dz,sxbeg,sybeg,jsx,jsy,szbeg,is,v_cut_directwave,d_dcal_device_txy,60,ns);
     }
     
 	 printf("   cudafd:%.3f (s)\n", ((float)(t1-t0))/CLOCKS_PER_SEC); 

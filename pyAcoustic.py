@@ -47,13 +47,13 @@ wavelet = {'ricker': 1, 'dgaussian': 2, 'gaussian': 3}
 #***********************************************************************************
 
 #  establish a model named "zjj_double"
-zjj_double = Model(nx=411, ny=411, nz=241, dx=10, dy=10, dz=10, 
-                  vel_file='./model/vel.dou.bin', rho_file='./model/den.dou.bin')
-print(zjj_double)
+zjj_double = Model(nx=301, ny=301, nz=301, dx=10, dy=10, dz=10,
+                  vel_file='./model/vel.bin', rho_file='./model/den.bin')
+#print(zjj_double)
 #  if homo_vel.bin is not exist, you can use write_model to produce one, the vel is 3000 
 #  in this example
-#zjj_model.write_model('./model/vel.dou.bin', 3000)
-#zjj_model.write_model('./model/den.dou.bin', 1242)
+#zjj_double.write_model('./model/vel.bin', 3000)
+#zjj_double.write_model('./model/den.bin', 1242)
 
 #***********************************************************************************
 #ShotReceiver:
@@ -68,11 +68,11 @@ print(zjj_double)
 #  Also, you can use print function to check your shot receiver settings, e.g. print(sg)
 #***********************************************************************************
 
-sg = ShotReceiver(sxbeg=0, sybeg=0, szbeg=0, jsx=16, jsy=8, jsz=1,
+sg = ShotReceiver(sxbeg=0, sybeg=0, szbeg=0, jsx=10, jsy=10, jsz=1,
                   sxend=zjj_double.nx, syend=zjj_double.ny, szend=0,
-                  dgx=20.0, dgy=40.0, dgt=0.002,
-                  shotfolder='/data2/sunhui_dipole/')
-print(sg)
+                  dgx=10.0, dgy=10.0, dgt=0.002,
+                  shotfolder='./shot_record/')
+#print(sg)
 #  The allocateNode function is to allocate the tasks into different nodes, nnode is 
 #  the number of devices
 sg.allocateNode(nnode=1)
@@ -97,10 +97,10 @@ nodei = 0
 #  Just like discussed before, you can use print to check the stencil settings
 #***********************************************************************************
 
-stencil = Acoustic3dvti(model=zjj_double, sg=sg, nt=3001, dt=0.001, fpeak=15.0,
+stencil = Acoustic3d1order(model=zjj_double, sg=sg, nt=1001, dt=0.001, fpeak=15.0,
                         wtype=wavelet['ricker'],
                         snap_folder='./snapshots/', snap_interval=200,
                         savesnap=False, nodei=nodei, cut_directwave=True)
-print(stencil)
+#print(stencil)
 #  After the FD stencil is settled, it won't run at once. use parallel_run to run the task
-#stencil.parallel_run()
+stencil.parallel_run()

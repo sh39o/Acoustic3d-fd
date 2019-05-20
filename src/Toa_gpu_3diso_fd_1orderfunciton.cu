@@ -46,6 +46,7 @@ void check_gpu_error(const char *msg)
         exit(0);
     }
 }
+          
 
 //a################################################################################
 __global__ void
@@ -70,13 +71,19 @@ add_source(float pfac, int fsx, int fsy, int sz, int nx, int ny, int nz, int nnx
     } else if (wtype == 2) {//derivative of gaussian
         x_ = (-4) * favg * favg * pi * pi / log(0.1);
         source = (-2) * pi * pi * ts * exp(-x_ * ts * ts);
-    } else if (wtype == 3) {//derivative of gaussian
+    } else if (wtype == 3) {//gaussian
         x_ = (-1) * favg * favg * pi * pi / log(0.1);
         source = exp(-x_ * ts * ts);
-    } else if (wtype == 4){
-        x_ = exp( - favg * favg * pi * pi * ts * ts ) * t;
+    } else if (wtype == 4){//Integrate of Ricker
+        x_ = exp( - favg * favg * pi * pi * ts * ts ) * ts;
         source = -x_;
-        
+    } else if (wtype == 5){//Int Integrate of Ricker
+        x_ = -1.0 / (2.0 * favg * favg * pi * pi);
+        x_ *= exp(- favg * favg * pi * pi * ts * ts);
+        source = x_;
+    } else if (wtype == 6){ //IntInt Integrate of Ricker
+        x_ = - erf( favg * pi * ts) / (4 * favg * favg * favg * pi * pi * sqrtf(pi));
+        source = x_;
     }
     
 
@@ -111,9 +118,15 @@ update_vel(int nx, int ny, int nz, int nnx, int nny, int nnz, int npml, float dt
                 yy = 0.0;
                 zz = 0.0;
                 for (im = 0; im < mm; im++) {
-                    yy += c[im] * (P[id + (im + 1) * nnz * nnx] - P[id - im * nnz * nnx]);
-                    xx += c[im] * (P[id + (im + 1) * nnz] - P[id - im * nnz]);
-                    zz += c[im] * (P[id + im + 1] - P[id - im]);
+                    //yy += c[im] * (P[id + im * nnz * nnx] - P[id - (im-1) * nnz * nnx]);
+                    //xx += c[im] * (P[id + im * nnz] - P[id - (im-1) * nnz]);
+                    //zz += c[im] * (P[id + im] - P[id - (im-1)]);
+
+                    yy += c[im] * (P[id + (im+1) * nnz * nnx] - P[id - im * nnz * nnx]);
+                    xx += c[im] * (P[id + (im+1) * nnz] - P[id - im * nnz]);
+                    zz += c[im] * (P[id + (im+1)] - P[id - im]);
+                    
+     
                 }
                 xx /= rho[id];
                 yy /= rho[id];
@@ -158,9 +171,13 @@ __global__ void update_stress(int nx, int ny, int nz, int nnx, int nny, int nnz,
                 yy = 0.0;
                 zz = 0.0;
                 for (im = 0; im < mm; im++) {
-                    yy += c[im] * (v1[id + im * nnz * nnx] - v1[id - (im + 1) * nnz * nnx]);
-                    xx += c[im] * (u1[id + im * nnz] - u1[id - (im + 1) * nnz]);
-                    zz += c[im] * (w1[id + im] - w1[id - im - 1]);
+                    //yy += c[im] * (v1[id + (im-1) * nnz * nnx] - v1[id - im * nnz * nnx]);
+                    //xx += c[im] * (u1[id + (im-1) * nnz] - u1[id - im * nnz]);
+                    //zz += c[im] * (w1[id + (im-1)] - w1[id - im]);
+
+                    yy += c[im] * (v1[id + im * nnz * nnx] - v1[id - (im+1) * nnz * nnx]);
+                    xx += c[im] * (u1[id + im * nnz] - u1[id - (im+1) * nnz]);
+                    zz += c[im] * (w1[id + im] - w1[id - (im+1)]);
                 }
                 px1[id] = acoffx2[ix] * px0[id] - acoffx1[ix] * rho[id] * vp[id] * vp[id] * dtx * xx;
                 py1[id] = acoffy2[iy] * py0[id] - acoffy1[iy] * rho[id] * vp[id] * vp[id] * dty * yy;
@@ -282,7 +299,7 @@ shot_record(int nnx, int nny, int nnz, int nx, int ny, int nz, int npml, int it,
     int iy = id / nx;
 
     if (id < nx * ny) {
-        shot[it + nt * ix + nt * nx * iy] = P[npml + nnz * (ix + npml) + nnz * nnx * (iy + npml)];
+        shot[it + nt * ix + nt * nx * iy] = P[(npml) + nnz * (ix + npml) + nnz * nnx * (iy + npml)];
     }
 }
 
@@ -356,10 +373,10 @@ extern "C" void cuda_3dfd_1order(char *FNvel, char *FNrho, char *FNsnap, char *F
                      int nx, int ny, int nz, float dx, float dy, float dz,
                      int sxbeg, int sybeg, int szbeg, int jsx, int jsy, int jsz,
                      float dgx, float dgy, float dgt,
-                     int nt, float dt, float fm, bool show_snapshot, bool cut_directwave,
+                     int nt, float dt, int wtype, float fm, bool show_snapshot, bool cut_directwave,
                      int snap_interval, int cudaDevicei){
                      
-    int it, nnx, nny, nnz, wtype, ix, iy;
+    int it, nnx, nny, nnz, ix, iy;
     int nsx, dsx, fsx, dsy, fsy, zs, npml;
     float t, pfac, favg;
 
@@ -375,7 +392,6 @@ extern "C" void cuda_3dfd_1order(char *FNvel, char *FNrho, char *FNsnap, char *F
 
     cudaError_t error;
 /*************wavelet\boundary**************/
-    wtype = 4;
     npml = 20;
 /********** dat document ***********/
     char snapname[300], snapid[300];
@@ -388,7 +404,7 @@ extern "C" void cuda_3dfd_1order(char *FNvel, char *FNrho, char *FNsnap, char *F
 /********* parameters *************/
 
     favg = fm;
-    pfac = 10.0;
+    pfac = 10000.0;
 
     nsx = ns;
     fsx = sxbeg;
@@ -505,7 +521,10 @@ extern "C" void cuda_3dfd_1order(char *FNvel, char *FNrho, char *FNsnap, char *F
         for (it = 0, t = dt; it < nt; it++, t += dt) {
             //if (it % snap_interval == 0)printf("it===%d\n", is, it);
             add_source <<< 1, 1 >>>
-                               (pfac, fsx, fsy, zs, nx, ny, nz, nnx, nny, nnz, dt, t, favg, wtype, npml, is, dsx, dsy, s_P, nsx);
+                               (-1.0 * pfac, fsx, fsy, zs, nx, ny, nz, nnx, nny, nnz, dt, t, favg, wtype, npml, is, dsx, dsy, s_P, nsx);
+            cudaDeviceSynchronize();
+            add_source <<< 1, 1 >>>
+                               ( 1.0 * pfac, fsx, fsy, zs+2, nx, ny, nz, nnx, nny, nnz, dt, t, favg, wtype, npml, is, dsx, dsy, s_P, nsx);
             cudaDeviceSynchronize();
             update_vel <<< dimg, dimb >>> (nx, ny, nz, nnx, nny, nnz, npml, dt, dx, dy, dz,
                     s_u0, s_v0, s_w0, s_u1, s_v1, s_w1, s_P, coffx1, coffx2, coffy1, coffy2, coffz1, coffz2, density);

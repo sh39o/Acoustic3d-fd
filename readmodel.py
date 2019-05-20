@@ -103,8 +103,12 @@ class ShotReceiver:
         return res
 
 
+def hello():
+    print("hello")
+
 class FD:
-    def __init__(self, model, sg, nt, dt, fpeak, snap_folder, snap_interval, device_i=0, savesnap=False, nodei=0,
+    def __init__(self, model, sg, nt, dt, fpeak, snap_folder, snap_interval, wtype=1, device_i=0, savesnap=False,
+                 nodei=0,
                  cut_directwave=False):
         self.model = model
         self.nt = nt
@@ -117,6 +121,10 @@ class FD:
         self.savesnap = savesnap
         self.nodei = nodei
         self.cut_directwave = cut_directwave
+        self.wtype = wtype
+        assert (self.sg.receiver_dx % self.model.dx == 0)
+        assert (self.sg.receiver_dy % self.model.dy == 0)
+        assert (self.sg.receiver_dt % self.dt == 0)
 
     def __str__(self):
         res = "the Model Property: \n"
@@ -132,20 +140,39 @@ class FD:
         res += "cut direct wave : {}\n".format(self.cut_directwave)
         return res
 
+    def available_GPU(self):
+        import subprocess
+        import numpy as np
+        nDevice = int(subprocess.getoutput("nvidia-smi -L | grep GPU |wc -l"))
+        total_GPU_str = subprocess.getoutput("nvidia-smi -q -d Memory | grep -A4 GPU | grep Total | grep -o '[0-9]\+'")
+        total_GPU = total_GPU_str.split('\n')
+        total_GPU = np.array([int(device_i) for device_i in total_GPU])
+        avail_GPU_str = subprocess.getoutput("nvidia-smi -q -d Memory | grep -A4 GPU | grep Free | grep -o '[0-9]\+'")
+        avail_GPU = avail_GPU_str.split('\n')
+        avail_GPU = np.array([int(device_i) for device_i in avail_GPU])
+        avail_GPU = avail_GPU / total_GPU
+        return np.argmax(avail_GPU)
+
     def parallel_run(self):
         from multiprocessing import freeze_support, Pool
         import subprocess
+        import time
         nDevice = int(subprocess.getoutput("nvidia-smi -L | grep GPU |wc -l"))
         freeze_support()
         pool = Pool(nDevice)
         taskList = self.sg.nodetask[self.nodei]
         print("there are {} task on this node".format(len(taskList)))
         print("the nDevice is {}".format(nDevice))
-        for i, task in enumerate(taskList):
-            device_i = i % nDevice
+        for device_i in range(nDevice):
+            task = taskList.pop(0)
             pool.apply_async(func=self.run, args=(task, device_i))
+            time.sleep(3)
+        for task in taskList:
+            pool.apply_async(func=self.run, args=(task, None))
+            time.sleep(3)
         pool.close()
         pool.join()
+
 
 
 class Acoustic3d1order(FD):
@@ -159,13 +186,15 @@ class Acoustic3d1order(FD):
 
     def run(self, ishot, device):
         from ctypes import c_char_p, c_int, c_float, c_bool
-        import os
         self.load_kernel()
+        if device is None:
+            device = super().available_GPU()
         print("device: {}, shot: ".format(device), ishot)
         shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
         if 0:
             print(shotname + " exists, skip")
         else:
+
             self.kernel.cuda_3dfd_1order(
                 c_char_p(bytes(self.model.vel_file, 'utf-8')),
                 c_char_p(bytes(self.model.rho_file, 'utf-8')),
@@ -178,7 +207,7 @@ class Acoustic3d1order(FD):
                 c_int(ishot[0]), c_int(ishot[1]), c_int(ishot[2]),
                 c_int(ishot[3]), c_int(ishot[4]), c_int(ishot[5]),
                 c_float(self.sg.receiver_dx), c_float(self.sg.receiver_dy), c_float(self.sg.receiver_dt),
-                c_int(self.nt), c_float(self.dt),
+                c_int(self.nt), c_float(self.dt), c_int(self.wtype),
                 c_float(self.fpeak), c_bool(self.savesnap), c_bool(self.cut_directwave),
                 c_int(self.snap_interval),
                 c_int(device)
@@ -208,14 +237,14 @@ class Acoustic3dvti(FD):
 
     def run(self, ishot, device):
         from ctypes import c_char_p, c_int, c_float, c_bool
-        import os
         self.load_kernel()
+        if device is None:
+            device = super().available_GPU()
         print("device: {}, shot: ".format(device), ishot)
         shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
         if 0:
             print(shotname + " exists, skip")
         else:
-
             self.kernel.cuda_3dfd_vti(
                 c_char_p(bytes(self.model.vel_file, 'utf-8')),
                 c_char_p(bytes(self.model.rho_file, 'utf-8')),
@@ -254,8 +283,9 @@ class Acoustic3d2order(FD):
 
     def run(self, ishot, device):
         from ctypes import c_char_p, c_int, c_float, c_bool
-        import os
         self.load_kernel()
+        if device is None:
+            device = super().available_GPU()
         print("device: {}, shot: ".format(device), ishot)
         shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
         if 0:
