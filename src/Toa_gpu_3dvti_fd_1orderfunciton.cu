@@ -386,12 +386,13 @@ mute_directwave(int nx, int ny, int nt, float dt, float favg, float dx, float dy
 }
 
 //a########################################################################
-extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *FNdelta, char *FNsnap, char *FNshot, int is, int ns,
-                     int nx, int ny, int nz, float dx, float dy, float dz,
-                     int sxbeg, int sybeg, int szbeg, int jsx, int jsy, int jsz,
-                     float dgx, float dgy, float dgt,
-                     int nt, float dt, float fm, bool show_snapshot, bool cut_directwave,
-                     int snap_interval, int cudaDevicei){
+extern "C" void
+cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *FNdelta, char *FNsnap, char *FNshot, int is, int ns,
+              int nx, int ny, int nz, float dx, float dy, float dz,
+              int sxbeg, int sybeg, int szbeg, int jsx, int jsy, int jsz,
+              float dgx, float dgy, float dgt,
+              int nt, float dt, float fm, bool show_snapshot, bool cut_directwave,
+              int snap_interval, int cudaDevicei) {
     int it, nnx, nny, nnz, wtype, ix, iy;
     int nsx, dsx, fsx, dsy, fsy, zs, npml;
     float t, pfac, favg;
@@ -514,10 +515,10 @@ extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *F
 /******************************/
     check_gpu_error("Failed to allocate memory for variables!");
 
-    get_d0 <<< 1, 1 >>> (dx, dy, dz, nnx, nny, nnz, npml, vp);
-    initial_coffe <<< (nnx + 511) / 512, 512 >>> (dt, nx, coffx1, coffx2, acoffx1, acoffx2, npml);
-    initial_coffe <<< (nny + 511) / 512, 512 >>> (dt, ny, coffy1, coffy2, acoffy1, acoffy2, npml);
-    initial_coffe <<< (nnz + 511) / 512, 512 >>> (dt, nz, coffz1, coffz2, acoffz1, acoffz2, npml);
+    get_d0 << < 1, 1 >> > (dx, dy, dz, nnx, nny, nnz, npml, vp);
+    initial_coffe << < (nnx + 511) / 512, 512 >> > (dt, nx, coffx1, coffx2, acoffx1, acoffx2, npml);
+    initial_coffe << < (nny + 511) / 512, 512 >> > (dt, ny, coffy1, coffy2, acoffy1, acoffy2, npml);
+    initial_coffe << < (nnz + 511) / 512, 512 >> > (dt, nz, coffz1, coffz2, acoffz1, acoffz2, npml);
 
 
     //printf("--------------------------------------------------------\n");
@@ -553,42 +554,60 @@ extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *F
 
         for (it = 0, t = dt; it < nt; it++, t += dt) {
             //if (it % 100 == 0)printf("---   IS===%d   it===%d\n", is, it);
-            add_source <<< 1, 1 >>>
+            add_source << < 1, 1 >> >
                                (pfac, fsx, fsy, zs, nx, ny, nz, nnx, nny, nnz, dt, t, favg, wtype, npml, is, dsx, dsy, s_P, s_Q, nsx);
             cudaDeviceSynchronize();
-            update_vel <<< dimg, dimb >>> (nx, ny, nz, nnx, nny, nnz, npml, dt, dx, dy, dz,
+            update_vel << < dimg, dimb >> > (nx, ny, nz, nnx, nny, nnz, npml, dt, dx, dy, dz,
                     s_u0, s_v0, s_w0, s_u1, s_v1, s_w1, s_P, s_Q, coffx1, coffx2, coffy1, coffy2, coffz1, coffz2, density);
             cudaDeviceSynchronize();
-            update_stress <<< dimg, dimb >>>
+            update_stress << < dimg, dimb >> >
                                      (nx, ny, nz, nnx, nny, nnz, dt, dx, dy, dz, s_u1, s_v1, s_w1, s_P, s_Q, vp, density, npml,
                                              s_px1, s_px0, s_py1, s_py0, s_pz1, s_pz0, s_qx1, s_qx0, s_qy1, s_qy0, s_qz1, s_qz0,
                                              acoffx1, acoffx2, acoffy1, acoffy2, acoffz1, acoffz2, delta, epsilon,
                                              fsx, dsx, fsy, dsy, zs, is, nsx, true);
             cudaDeviceSynchronize();
-            ptr = s_u0; s_u0 = s_u1; s_u1 = ptr;
-            ptr = s_v0; s_v0 = s_v1; s_v1 = ptr;
-            ptr = s_w0; s_w0 = s_w1; s_w1 = ptr;
-            ptr = s_px0; s_px0 = s_px1; s_px1 = ptr;
-            ptr = s_py0; s_py0 = s_py1; s_py1 = ptr;
-            ptr = s_pz0; s_pz0 = s_pz1; s_pz1 = ptr;
-            ptr = s_qx0; s_qx0 = s_qx1; s_qx1 = ptr;
-            ptr = s_qy0; s_qy0 = s_qy1; s_qy1 = ptr;
-            ptr = s_qz0; s_qz0 = s_qz1; s_qz1 = ptr;
+            ptr = s_u0;
+            s_u0 = s_u1;
+            s_u1 = ptr;
+            ptr = s_v0;
+            s_v0 = s_v1;
+            s_v1 = ptr;
+            ptr = s_w0;
+            s_w0 = s_w1;
+            s_w1 = ptr;
+            ptr = s_px0;
+            s_px0 = s_px1;
+            s_px1 = ptr;
+            ptr = s_py0;
+            s_py0 = s_py1;
+            s_py1 = ptr;
+            ptr = s_pz0;
+            s_pz0 = s_pz1;
+            s_pz1 = ptr;
+            ptr = s_qx0;
+            s_qx0 = s_qx1;
+            s_qx1 = ptr;
+            ptr = s_qy0;
+            s_qy0 = s_qy1;
+            s_qy1 = ptr;
+            ptr = s_qz0;
+            s_qz0 = s_qz1;
+            s_qz1 = ptr;
 
-            shot_record <<< (nx * ny + 511) / 512, 512 >>> (nnx, nny, nnz, nx, ny, nz, npml, it, nt, s_P, shot_Dev);
+            shot_record << < (nx * ny + 511) / 512, 512 >> > (nnx, nny, nnz, nx, ny, nz, npml, it, nt, s_P, shot_Dev);
             cudaDeviceSynchronize();
 
 
             if (show_snapshot) {
-                if(it % snap_interval == 0){
-                    cudaMemcpy(e, s_P, nnz*nnx*nny*sizeof(float), cudaMemcpyDeviceToHost);
-                    strcpy(snapname,FNsnap);
-                    sprintf(snapid,"ishot_%d_",is);
-                    strcat(snapname,snapid);
-                    sprintf(snapid,"it_%d",it);
-                    strcat(snapname,snapid);
-                    strcat(snapname,".bin");
-                    if((fpsnap=fopen(snapname,"wb"))==NULL){
+                if (it % snap_interval == 0) {
+                    cudaMemcpy(e, s_P, nnz * nnx * nny * sizeof(float), cudaMemcpyDeviceToHost);
+                    strcpy(snapname, FNsnap);
+                    sprintf(snapid, "ishot_%d_", is);
+                    strcat(snapname, snapid);
+                    sprintf(snapid, "it_%d", it);
+                    strcat(snapname, snapid);
+                    strcat(snapname, ".bin");
+                    if ((fpsnap = fopen(snapname, "wb")) == NULL) {
                         printf("cannot write snapfile\n");
                     }
                     window3d(v, e, nz, nx, ny, nnz, nnx, npml);
@@ -597,16 +616,17 @@ extern "C" void cuda_3dfd_vti(char *FNvel, char *FNrho, char *FNepsilon, char *F
                 }
             }
         }//it loop end
-        if ( cut_directwave ) {
-            mute_directwave<<<Xdimg,dimb>>>(nx,ny,nt,dt,favg,dx,dy,dz,fsx,fsy,dsx,dsy,zs,is,vp,epsilon,shot_Dev,60,nsx);
+        if (cut_directwave) {
+            mute_directwave << < Xdimg, dimb >> >
+                                        (nx, ny, nt, dt, favg, dx, dy, dz, fsx, fsy, dsx, dsy, zs, is, vp, epsilon, shot_Dev, 60, nsx);
         }
         cudaMemcpy(shot_Hos, shot_Dev, nt * nx * ny * sizeof(float), cudaMemcpyDeviceToHost);
         fseek(fpshot, is * nt * nx * ny * sizeof(float), 0);
-        for(iy=0;iy<ny;iy+=int(dgy/dy)){
-            for(ix=0;ix<nx;ix+=int(dgx/dx)){
-                  for(it=0;it<nt;it+=int(dgt/dt)){
-                        fwrite(&shot_Hos[iy*nx*nt+ix*nt+it],sizeof(float),1,fpshot);
-                  }
+        for (iy = 0; iy < ny; iy += int(dgy / dy)) {
+            for (ix = 0; ix < nx; ix += int(dgx / dx)) {
+                for (it = 0; it < nt; it += int(dgt / dt)) {
+                    fwrite(&shot_Hos[iy * nx * nt + ix * nt + it], sizeof(float), 1, fpshot);
+                }
             }
         }
 

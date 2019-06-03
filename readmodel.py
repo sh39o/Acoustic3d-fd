@@ -1,5 +1,8 @@
 class Model:
-    def __init__(self, nx, ny, nz, dx, dy, dz, vel_file=None, rho_file=None, delta_file=None, epsilon_file=None):
+    def __init__(self, nx, ny, nz, dx, dy, dz,
+                 vel_file=None, rho_file=None,
+                 delta_file=None, epsilon_file=None,
+                 theta_file=None, psi_file=None):
         self.nx = nx
         self.ny = ny
         self.nz = nz
@@ -10,6 +13,8 @@ class Model:
         self.vel_file = vel_file
         self.delta_file = delta_file
         self.epsilon_file = epsilon_file
+        self.theta_file = theta_file
+        self.psi_file = psi_file
         self.shape = (self.nx, self.ny, self.nz)
 
     def write_model(self, filename, value):
@@ -17,13 +22,41 @@ class Model:
         if filename is None:
             print(filename, "cannot be None")
             raise NameError
-
         f = open(filename, 'wb')
-
         for _ in range(self.nx * self.ny * self.nz):
             data = struct.pack('f', value)
             f.write(data)
         f.close()
+        
+    def write_rho(self, value):
+        self.write_model(self.rho_file, value)
+    
+    def write_vel(self, value):
+        self.write_model(self.vel_file, value)
+    
+    def write_epsilon(self, value):
+        self.write_model(self.epsilon_file, value)
+    
+    def write_delta(self, value):
+        self.write_model(self.delta_file, value)
+    
+    def write_theta(self, value):
+        self.write_model(self.theta_file, value)
+    
+    def write_psi(self, value):
+        self.write_model(self.psi_file, value)
+    
+    def generate_model(self, vel=3000, rho=1200, epsilon=0.0, delta=0.0, theta=0.0, psi=0.0):
+        self.write_vel(vel)
+        self.write_rho(rho)
+        if epsilon != 0.0:
+            self.write_epsilon(epsilon)
+        if delta != 0.0:
+            self.write_delta(delta)
+        if theta != 0.0:
+            self.write_theta(theta)
+        if psi != 0.0:
+            self.write_psi(psi)
 
     def read_model(self, filename):
         import struct
@@ -102,9 +135,6 @@ class ShotReceiver:
         res += "*" * 30 + '\n'
         return res
 
-
-def hello():
-    print("hello")
 
 class FD:
     def __init__(self, model, sg, nt, dt, fpeak, snap_folder, snap_interval, wtype=1, device_i=0, savesnap=False,
@@ -305,5 +335,52 @@ class Acoustic3d2order(FD):
                 c_int(self.nt), c_int(300), c_float(self.dt),
                 c_float(self.fpeak), c_bool(self.savesnap),
                 c_int(self.snap_interval), c_bool(self.cut_directwave),
+                c_int(device)
+            )
+
+class Acoustic3dtti(FD):
+
+    def __str__(self):
+        res = "Stencil Acoustic tti 3D \n"
+        res += "*" * 30 + '\n'
+        res += super().__str__()
+        return res
+
+    def load_kernel(self):
+        from ctypes import cdll
+        try:
+            self.kernel = cdll.LoadLibrary('./lib/acoustic1tti.so')
+        except OSError:
+            print("cannot open ./lib/acoustic1tti.so")
+
+    def run(self, ishot, device):
+        from ctypes import c_char_p, c_int, c_float, c_bool
+        self.load_kernel()
+        if device is None:
+            device = super().available_GPU()
+        print("device: {}, shot: ".format(device), ishot)
+        shotname = self.sg.shotfile + '{0}.{1}.bin'.format(str(ishot[0]), str(ishot[1]))
+        if 0:
+            print(shotname + " exists, skip")
+        else:
+            self.kernel.cuda_3dfd_tti(
+                c_char_p(bytes(self.model.vel_file, 'utf-8')),
+                c_char_p(bytes(self.model.rho_file, 'utf-8')),
+                c_char_p(bytes(self.model.epsilon_file, 'utf-8')),
+                c_char_p(bytes(self.model.delta_file, 'utf-8')),
+                c_char_p(bytes(self.model.theta_file, 'utf-8')),
+                c_char_p(bytes(self.model.psi_file, 'utf-8')),
+                c_char_p(bytes(self.snap_folder, 'utf-8')),
+                c_char_p(bytes(shotname, 'utf-8')),
+                c_int(0),
+                c_int(1),
+                c_int(self.model.nx), c_int(self.model.ny), c_int(self.model.nz),
+                c_float(self.model.dx), c_float(self.model.dy), c_float(self.model.dz),
+                c_int(ishot[0]), c_int(ishot[1]), c_int(ishot[2]),
+                c_int(ishot[3]), c_int(ishot[4]), c_int(ishot[5]),
+                c_float(self.sg.receiver_dx), c_float(self.sg.receiver_dy), c_float(self.sg.receiver_dt),
+                c_int(self.nt), c_float(self.dt),
+                c_float(self.fpeak), c_bool(self.savesnap), c_bool(self.cut_directwave),
+                c_int(self.snap_interval),
                 c_int(device)
             )
